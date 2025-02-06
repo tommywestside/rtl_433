@@ -195,7 +195,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                 if (stream_len == 0x47) {
                     clock       = ((uint32_t)b[14] << 24) | (b[15] << 16) | (b[16] << 8) | b[17];
                     uptime      = ((uint32_t)b[22] << 24) | (b[23] << 16) | (b[24] << 8) | b[25];
-                    consumption = ((uint32_t)b[80] << 16) | (b[81] << 8) | b[82];
+                    consumption = ((uint32_t)b[55] << 16) | (b[56] << 8) | b[57];
                     sprintf(srcwanaddress_str, "%02x%02x%02x%02x%02x%02x", b[30], b[31], b[32], b[33], b[34], b[35]);
                     srcwanaddress = 1;
                 }
