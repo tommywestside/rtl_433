@@ -138,6 +138,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
     int srcwanaddress           = 0;
     uint32_t uptime             = 0;
     int clock                   = 0;
+    int consumption             = 0;
     int subtype;
     unsigned offset;
     int protocol_version;
@@ -192,8 +193,9 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                 sprintf(destaddress_str, "%02x%02x%02x%02x", b[5], b[6], b[7], b[8]);
                 sprintf(srcaddress_str, "%02x%02x%02x%02x", b[9], b[10], b[11], b[12]);
                 if (stream_len == 0x47) {
-                    clock  = ((uint32_t)b[14] << 24) | (b[15] << 16) | (b[16] << 8) | b[17];
-                    uptime = ((uint32_t)b[22] << 24) | (b[23] << 16) | (b[24] << 8) | b[25];
+                    clock       = ((uint32_t)b[14] << 24) | (b[15] << 16) | (b[16] << 8) | b[17];
+                    uptime      = ((uint32_t)b[22] << 24) | (b[23] << 16) | (b[24] << 8) | b[25];
+                    consumption = ((uint32_t)b[80] << 16) | (b[81] << 8) | b[82];
                     sprintf(srcwanaddress_str, "%02x%02x%02x%02x%02x%02x", b[30], b[31], b[32], b[33], b[34], b[35]);
                     srcwanaddress = 1;
                 }
@@ -215,6 +217,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                 "destaddress",  "Target Meter ID",      DATA_COND,      subtype == 0xD5, DATA_STRING, destaddress_str,
                 "timestamp",    "Timestamp",            DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, clock,
                 "uptime",       "Uptime",               DATA_COND,      uptime > 0, DATA_INT, uptime,
+                "consumption",  "Consumption",          DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, consumption, 
                 NULL);
             /* clang-format on */
 
@@ -246,6 +249,7 @@ static char const *const output_fields[] = {
         "protoversion",
         "framedata",
         "mic",
+        "consumption",
         NULL,
 };
 
