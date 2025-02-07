@@ -139,6 +139,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
     uint32_t uptime             = 0;
     int clock                   = 0;
     int consumption             = 0;
+    char meter_type[5]          = "";
     int subtype;
     unsigned offset;
     int protocol_version;
@@ -187,6 +188,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                 sprintf(srcwanaddress_str, "%02x%02x%02x%02x%02x%02x", b[11], b[12], b[13], b[14], b[15], b[16]);
                 srcwanaddress = 1;
                 sprintf(srcaddress_str, "%02x%02x%02x%02x", b[24], b[25], b[26], b[27]);
+                sprintf(meter_type, "%02x%02x", b[22], b[23]);
                 uptime = ((uint32_t)b[18] << 24) | (b[19] << 16) | (b[20] << 8) | b[21];
                 break;
             case 0xD5:
@@ -196,6 +198,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                     clock       = ((uint32_t)b[14] << 24) | (b[15] << 16) | (b[16] << 8) | b[17];
                     uptime      = ((uint32_t)b[22] << 24) | (b[23] << 16) | (b[24] << 8) | b[25];
                     consumption = ((uint32_t)b[55] << 16) | (b[56] << 8) | b[57];
+                    sprintf(meter_type, "%02x%02x", b[26], b[27]);
                     sprintf(srcwanaddress_str, "%02x%02x%02x%02x%02x%02x", b[30], b[31], b[32], b[33], b[34], b[35]);
                     srcwanaddress = 1;
                 }
@@ -205,6 +208,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
             /* clang-format off */
             data = data_make(
                 "model",        "",                     DATA_STRING,    "LandisGyr-GS",
+                "meter_type",   "Meter Type",           DATA_COND,      (subtype == 0xD5 && stream_len == 0x47) || subtype == 0xD5, meter_type,
                 "networkID",    "Network ID",           DATA_STRING,    found_crc,
                 "location",     "Location",             DATA_STRING,    known_crc_init[crcidx].location,
                 "provider",     "Provider",             DATA_STRING,    known_crc_init[crcidx].provider,
