@@ -208,7 +208,7 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
             /* clang-format off */
             data = data_make(
                 "model",        "",                     DATA_STRING,    "LandisGyr-GS",
-                "meter_type",   "Meter Type",           DATA_COND,      (subtype == 0xD5 && stream_len == 0x47) || subtype == 0xD5, meter_type,
+                "meter_type",   "Meter Type",           DATA_COND,      (subtype == 0xD5 && stream_len == 0x47) || subtype == 0xD5, DATA_STRING, meter_type,
                 "networkID",    "Network ID",           DATA_STRING,    found_crc,
                 "location",     "Location",             DATA_STRING,    known_crc_init[crcidx].location,
                 "provider",     "Provider",             DATA_STRING,    known_crc_init[crcidx].provider,
