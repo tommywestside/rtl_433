@@ -139,7 +139,21 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
     uint32_t uptime             = 0;
     int clock                   = 0;
     int consumption             = 0;
+    int reading                 = 0;
     char meter_type[5]          = "";
+    int message_length          = 0;
+    int d5_47_unknown_1         = 0;
+    int d5_47_unknown_2         = 0;
+    int d5_47_unknown_3         = 0;
+    int d5_unknown_1            = 0;
+    int d5_11_payload           = 0;
+    int d5_16_payload_1         = 0;
+    int d5_16_payload_2         = 0;
+    int d5_16_payload_3         = 0;
+    int d5_16_payload_4         = 0;
+    int d5_16_payload_5         = 0;
+    int d5_16_payload_6         = 0;
+    int unknown_55              = 0;
     int subtype;
     unsigned offset;
     int protocol_version;
@@ -182,6 +196,9 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                 return DECODE_FAIL_MIC;
             }
             sprintf(found_crc, "%04x", known_crc_init[crcidx].value);
+
+            message_length = (uint32_t)stream_len;
+
             switch (subtype) {
             case 0x55:
                 sprintf(destwanaddress_str, "%02x%02x%02x%02x%02x%02x", b[5], b[6], b[7], b[8], b[9], b[10]);
@@ -189,39 +206,72 @@ static int gridstream_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                 srcwanaddress = 1;
                 sprintf(srcaddress_str, "%02x%02x%02x%02x", b[24], b[25], b[26], b[27]);
                 sprintf(meter_type, "%02x%02x", b[22], b[23]);
-                uptime = ((uint32_t)b[18] << 24) | (b[19] << 16) | (b[20] << 8) | b[21];
+                uptime     = ((uint32_t)b[18] << 24) | (b[19] << 16) | (b[20] << 8) | b[21];
+                unknown_55 = ((uint32_t)b[31] << 16) | (b[32] << 8) | b[33];
                 break;
             case 0xD5:
                 sprintf(destaddress_str, "%02x%02x%02x%02x", b[5], b[6], b[7], b[8]);
                 sprintf(srcaddress_str, "%02x%02x%02x%02x", b[9], b[10], b[11], b[12]);
                 if (stream_len == 0x47) {
-                    clock       = ((uint32_t)b[14] << 24) | (b[15] << 16) | (b[16] << 8) | b[17];
-                    uptime      = ((uint32_t)b[22] << 24) | (b[23] << 16) | (b[24] << 8) | b[25];
-                    consumption = ((uint32_t)b[55] << 16) | (b[56] << 8) | b[57];
+                    clock           = ((uint32_t)b[14] << 24) | (b[15] << 16) | (b[16] << 8) | b[17];
+                    uptime          = ((uint32_t)b[22] << 24) | (b[23] << 16) | (b[24] << 8) | b[25];
+                    consumption     = ((uint32_t)b[55] << 16) | (b[56] << 8) | b[57];
+                    reading         = ((uint32_t)b[18] << 24) | (b[19] << 16) | (b[20] << 8) | b[21];
+                    d5_47_unknown_1 = ((uint32_t)(b[71]) << 8) | b[72];
+                    d5_47_unknown_2 = ((uint32_t)(b[62]) << 8) | b[63];
+                    d5_47_unknown_3 = ((uint32_t)b[58] << 24) | (b[59] << 16) | (b[60] << 8) | b[61];
                     sprintf(meter_type, "%02x%02x", b[26], b[27]);
                     sprintf(srcwanaddress_str, "%02x%02x%02x%02x%02x%02x", b[30], b[31], b[32], b[33], b[34], b[35]);
                     srcwanaddress = 1;
+                }
+                else {
+                    d5_unknown_1 = ((uint32_t)b[4]);
+                    if (stream_len == 0x11) {
+                        d5_11_payload = ((uint32_t)b[15]);
+                    }
+                    if (stream_len == 0x16 || stream_len == 0x17) {
+                        d5_16_payload_1 = ((uint32_t)b[15]);
+                        d5_16_payload_2 = ((uint32_t)b[16]);
+                        d5_16_payload_3 = ((uint32_t)b[17]);
+                        d5_16_payload_4 = ((uint32_t)b[18]);
+                        d5_16_payload_5 = ((uint32_t)b[19]);
+                        d5_16_payload_6 = ((uint32_t)b[20]);
+                    }
                 }
                 break;
             }
 
             /* clang-format off */
             data = data_make(
-                "model",        "",                     DATA_STRING,    "LandisGyr-GS",
-                "meter_type",   "Meter Type",           DATA_COND,      (subtype == 0xD5 && stream_len == 0x47) || subtype == 0xD5, DATA_STRING, meter_type,
-                "networkID",    "Network ID",           DATA_STRING,    found_crc,
-                "location",     "Location",             DATA_STRING,    known_crc_init[crcidx].location,
-                "provider",     "Provider",             DATA_STRING,    known_crc_init[crcidx].provider,
-                "subtype",      "",                     DATA_INT,       subtype,
-                "protoversion", "",                     DATA_INT,       protocol_version,
-                "mic",          "Integrity",            DATA_STRING,    "CRC",
-                "id",           "Source Meter ID",      DATA_COND,      subtype != 0xD2, DATA_STRING, srcaddress_str,
-                "wanaddress",   "Source Meter WAN ID",  DATA_COND,      srcwanaddress == 1, DATA_STRING, srcwanaddress_str,
-                "destaddress",  "Target Meter WAN ID",  DATA_COND,      subtype == 0x55, DATA_STRING, destwanaddress_str,
-                "destaddress",  "Target Meter ID",      DATA_COND,      subtype == 0xD5, DATA_STRING, destaddress_str,
-                "timestamp",    "Timestamp",            DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, clock,
-                "uptime",       "Uptime",               DATA_COND,      uptime > 0, DATA_INT, uptime,
-                "consumption",  "Consumption",          DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, consumption, 
+                "model",            "",                     DATA_STRING,    "LandisGyr-GS",
+                "meter_type",       "Meter Type",           DATA_COND,      (subtype == 0xD5 && stream_len == 0x47) || subtype == 0xD5, DATA_STRING, meter_type,
+                "networkID",        "Network ID",           DATA_STRING,    found_crc,
+                "location",         "Location",             DATA_STRING,    known_crc_init[crcidx].location,
+                "provider",         "Provider",             DATA_STRING,    known_crc_init[crcidx].provider,
+                "subtype",          "",                     DATA_INT,       subtype,
+                "protoversion",     "",                     DATA_INT,       protocol_version,
+                "mic",              "Integrity",            DATA_STRING,    "CRC",
+                "id",               "Source Meter ID",      DATA_COND,      subtype != 0xD2, DATA_STRING, srcaddress_str,
+                "wanaddress",       "Source Meter WAN ID",  DATA_COND,      srcwanaddress == 1, DATA_STRING, srcwanaddress_str,
+                "destaddress",      "Target Meter WAN ID",  DATA_COND,      subtype == 0x55, DATA_STRING, destwanaddress_str,
+                "destaddress",      "Target Meter ID",      DATA_COND,      subtype == 0xD5, DATA_STRING, destaddress_str,
+                "timestamp",        "Timestamp",            DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, clock,
+                "uptime",           "Uptime",               DATA_COND,      uptime > 0, DATA_INT, uptime,
+                "consumption",      "Consumption",          DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, consumption, 
+                "reading",          "Reading",              DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, reading, 
+                "d5_47_unknown_1",  "D5_47_Unknown_1",      DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, d5_47_unknown_1, 
+                "d5_47_unknown_2",  "D5_47_Unknown_2",      DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, d5_47_unknown_2, 
+                "d5_47_unknown_3",  "D5_47_Unknown_3",      DATA_COND,      subtype == 0xD5 && stream_len == 0x47, DATA_INT, d5_47_unknown_3, 
+                "d5_unknown_1",     "D5_Unknown_1",         DATA_COND,      subtype == 0xD5 && stream_len != 0x47, DATA_INT, d5_unknown_1, 
+                "message_length",   "Message Length",       DATA_INT,       message_length,
+                "d5_11_payload",    "D5_11_payload",        DATA_COND,      subtype == 0xD5 && stream_len != 0x11, DATA_INT, d5_11_payload, 
+                "d5_16_payload_1",  "D5_16_payload_1",      DATA_COND,      subtype == 0xD5 && (stream_len != 0x16 || stream_len != 0x17), DATA_INT, d5_16_payload_1, 
+                "d5_16_payload_2",  "D5_16_payload_2",      DATA_COND,      subtype == 0xD5 && (stream_len != 0x16 || stream_len != 0x17), DATA_INT, d5_16_payload_2, 
+                "d5_16_payload_3",  "D5_16_payload_3",      DATA_COND,      subtype == 0xD5 && (stream_len != 0x16 || stream_len != 0x17), DATA_INT, d5_16_payload_3, 
+                "d5_16_payload_4",  "D5_16_payload_4",      DATA_COND,      subtype == 0xD5 && (stream_len != 0x16 || stream_len != 0x17), DATA_INT, d5_16_payload_4, 
+                "d5_16_payload_5",  "D5_16_payload_5",      DATA_COND,      subtype == 0xD5 && (stream_len != 0x16 || stream_len != 0x17), DATA_INT, d5_16_payload_5, 
+                "d5_16_payload_6",  "D5_16_payload_6",      DATA_COND,      subtype == 0xD5 && (stream_len != 0x16 || stream_len != 0x17), DATA_INT, d5_16_payload_6, 
+                "unknown_55",       "55_Unknown",           DATA_COND,      subtype == 0x55, DATA_INT, unknown_55, 
                 NULL);
             /* clang-format on */
 
@@ -254,6 +304,20 @@ static char const *const output_fields[] = {
         "framedata",
         "mic",
         "consumption",
+        "reading",
+        "d5_47_unknown_1",
+        "d5_47_unknown_2",
+        "d5_47_unknown_3",
+        "d5_unknown_1",
+        "message_length",
+        "d5_11_payload",
+        "d5_16_payload_1",
+        "d5_16_payload_2",
+        "d5_16_payload_3",
+        "d5_16_payload_4",
+        "d5_16_payload_5",
+        "d5_16_payload_6",
+        "unknown_55",
         NULL,
 };
 
